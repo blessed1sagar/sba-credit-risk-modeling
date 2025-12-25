@@ -1,0 +1,73 @@
+# Virtual Environment
+venv/
+env/
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Data files (large files)
+*.csv
+*.xlsx
+*.xls
+*.parquet
+*.h5
+*.hdf5
+
+# Model files
+*.joblib
+*.pkl
+*.pickle
+*.h5
+*.model
+
+# Logs
+*.log
+logs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.local
+
+# Outputs
+*.png
+*.jpg
+*.jpeg
+
+# Temporary files
+tmp/
+temp/

@@ -25,10 +25,6 @@ wheels/
 .installed.cfg
 *.egg
 
-# Jupyter Notebook
-.ipynb_checkpoints/
-*.ipynb_checkpoints
-
 # Data files (large files)
 *.csv
 *.xlsx
@@ -43,6 +39,11 @@ wheels/
 *.pickle
 *.h5
 *.model
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
 
 # Logs
 *.log

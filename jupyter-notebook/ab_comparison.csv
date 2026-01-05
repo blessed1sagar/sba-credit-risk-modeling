@@ -1,0 +1,9 @@
+Metric,Experiment A (With Term),Experiment B (No Term)
+F1 (default),0.8411,0.4234
+F1 (optimized),0.8489,0.4242
+Best Threshold,0.600,0.550
+Precision,0.8046,0.3621
+Recall,0.8810,0.5096
+PR-AUC,0.9047,0.3761
+ROC-AUC,0.9850,0.8468
+KS Score,0.8873,0.5516

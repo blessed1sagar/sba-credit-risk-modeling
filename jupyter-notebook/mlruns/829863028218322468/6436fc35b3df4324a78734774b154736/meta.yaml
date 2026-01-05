@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/sagarpandey/Documents/ml-eng-lr/jupyter-notebook/mlruns/829863028218322468/6436fc35b3df4324a78734774b154736/artifacts
+end_time: 1767083240560
+entry_point_name: ''
+experiment_id: '829863028218322468'
+lifecycle_stage: active
+run_id: 6436fc35b3df4324a78734774b154736
+run_name: Experiment_A_Final
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1767083239154
+status: 3
+tags: []
+user_id: sagarpandey

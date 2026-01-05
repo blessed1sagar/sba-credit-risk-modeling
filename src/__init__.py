@@ -1,2 +1,5 @@
-# SBA Loan Credit Risk Model
-# This package contains the source code for the SBA loan default prediction model.
+"""
+SBA Loan Credit Risk Model
+
+Production-ready MLOps pipeline for predicting SBA loan defaults.
+"""

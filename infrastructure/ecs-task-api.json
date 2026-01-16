@@ -1,0 +1,62 @@
+{
+  "family": "sba-loan-api",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::696923547392:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::696923547392:role/sba-loan-api-task-role",
+  "containerDefinitions": [
+    {
+      "name": "sba-loan-api",
+      "image": "696923547392.dkr.ecr.ap-south-2.amazonaws.com/sba-api:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "SYNC_FROM_S3",
+          "value": "true"
+        },
+        {
+          "name": "AWS_REGION",
+          "value": "ap-south-2"
+        },
+        {
+          "name": "S3_BUCKET_NAME",
+          "value": "sba-credit-risk-artifacts-sagar"
+        },
+        {
+          "name": "API_HOST",
+          "value": "0.0.0.0"
+        },
+        {
+          "name": "API_PORT",
+          "value": "8000"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/sba-credit-risk",
+          "awslogs-region": "ap-south-2",
+          "awslogs-stream-prefix": "api"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "python -c \"import requests; requests.get('http://localhost:8000/api/health', timeout=5)\" || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}

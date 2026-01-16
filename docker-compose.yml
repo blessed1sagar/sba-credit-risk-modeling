@@ -1,0 +1,82 @@
+# =============================================================================
+# Docker Compose Configuration for SBA Loan ML System
+# =============================================================================
+# This docker-compose file sets up a local development environment with:
+#   - FastAPI backend (api service)
+#   - Streamlit frontend (ui service)
+#
+# Usage:
+#   docker-compose up --build          # Build and start all services
+#   docker-compose up -d               # Run in detached mode
+#   docker-compose logs -f api         # View API logs
+#   docker-compose down                # Stop and remove containers
+#
+# Access:
+#   - API: http://localhost:8000
+#   - API Docs: http://localhost:8000/docs
+#   - Streamlit UI: http://localhost:8501
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # ---------------------------------------------------------------------------
+  # FastAPI Backend Service
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: sba-loan-api
+    ports:
+      - "8000:8000"
+    environment:
+      # Local development mode - use mounted artifacts, not S3
+      - SYNC_FROM_S3=false
+      - AWS_REGION=ap-south-2
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+    volumes:
+      # Mount local artifacts for faster development (no S3 dependency)
+      - ./models:/app/models
+      - ./data/processed:/app/data/processed
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - sba-loan-network
+
+  # ---------------------------------------------------------------------------
+  # Streamlit Frontend Service
+  # ---------------------------------------------------------------------------
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    container_name: sba-loan-ui
+    ports:
+      - "8501:8501"
+    environment:
+      # Connect to API service via Docker network
+      - API_URL=http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8501/_stcore/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - sba-loan-network
+
+# -----------------------------------------------------------------------------
+# Networks
+# -----------------------------------------------------------------------------
+networks:
+  sba-loan-network:
+    driver: bridge

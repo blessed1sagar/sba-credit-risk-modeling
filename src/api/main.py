@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 import pandas as pd
 import logging
+import os
 
 from src.inference_pipeline.predict import LoanPredictor
 
@@ -25,7 +26,10 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="SBA Loan Risk API",
     description="Predict default probability and explain risk factors for SBA loan applications",
-    version="1.0.0"
+    version="1.0.0",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json"
 )
 
 # Global predictor (initialized on startup)
@@ -37,8 +41,14 @@ async def startup_event():
     """
     Initialize predictor on application startup.
 
-    Loads model and frequency encoder. Optionally syncs artifacts from S3
-    based on environment configuration.
+    Uses environment variable SYNC_FROM_S3 to control artifact loading:
+      - SYNC_FROM_S3=true:  Always try S3 sync (cloud deployment)
+      - SYNC_FROM_S3=false: Use local artifacts only (local development)
+
+    Environment Variables:
+      - SYNC_FROM_S3: 'true'|'false' (default: 'false')
+      - AWS_REGION: AWS region (default: 'ap-south-2')
+      - S3_BUCKET_NAME: S3 bucket name (default: 'sba-credit-risk-artifacts-sagar')
     """
     global predictor
 
@@ -46,12 +56,24 @@ async def startup_event():
     logger.info("STARTING SBA LOAN RISK API")
     logger.info("=" * 80)
 
+    # Determine if we should try S3 sync from environment variable
+    sync_from_s3 = os.getenv('SYNC_FROM_S3', 'false').lower() in ('true', '1', 'yes')
+
+    logger.info(f"Environment: {'Cloud (S3 sync enabled)' if sync_from_s3 else 'Local (S3 disabled)'}")
+    logger.info(f"Region: {os.getenv('AWS_REGION', 'ap-south-2')}")
+
     try:
-        # Initialize predictor (set sync_from_s3=True for cloud deployments)
-        predictor = LoanPredictor(sync_from_s3=False)
+        # Initialize predictor with smart sync
+        predictor = LoanPredictor(sync_from_s3=sync_from_s3)
         logger.info("✓ Predictor initialized successfully")
+    except FileNotFoundError as e:
+        logger.error(f"❌ Failed to initialize predictor - missing artifacts: {e}")
+        logger.error("\nTo generate artifacts:")
+        logger.error("  1. Run locally: python run_pipeline.py")
+        logger.error("  2. (Optional) Upload to S3: python scripts/push_artifacts.py")
+        raise
     except Exception as e:
-        logger.error(f"Failed to initialize predictor: {e}")
+        logger.error(f"❌ Failed to initialize predictor: {e}")
         raise
 
     logger.info("✓ API ready to accept requests")
@@ -157,7 +179,7 @@ class ExplanationResponse(BaseModel):
 # API ENDPOINTS
 # ============================================================================
 
-@app.get("/")
+@app.get("/api")
 async def root():
     """Root endpoint with API information."""
     return {
@@ -165,14 +187,14 @@ async def root():
         "version": "1.0.0",
         "description": "Predict default probability and explain risk factors for SBA loan applications",
         "endpoints": {
-            "/predict": "POST - Predict default probability for a loan application",
-            "/explain": "POST - Get SHAP explanation for a loan application",
-            "/health": "GET - Check API health status"
+            "/api/predict": "POST - Predict default probability for a loan application",
+            "/api/explain": "POST - Get SHAP explanation for a loan application",
+            "/api/health": "GET - Check API health status"
         }
     }
 
 
-@app.get("/health")
+@app.get("/api/health")
 async def health_check():
     """
     Health check endpoint.
@@ -187,7 +209,7 @@ async def health_check():
     }
 
 
-@app.post("/predict", response_model=PredictionResponse)
+@app.post("/api/predict", response_model=PredictionResponse)
 async def predict_default(request: LoanApplicationRequest):
     """
     Predict default probability for a loan application.
@@ -250,7 +272,7 @@ async def predict_default(request: LoanApplicationRequest):
         raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
 
 
-@app.post("/explain", response_model=ExplanationResponse)
+@app.post("/api/explain", response_model=ExplanationResponse)
 async def explain_prediction(request: LoanApplicationRequest):
     """
     Generate SHAP explanation for a loan application.

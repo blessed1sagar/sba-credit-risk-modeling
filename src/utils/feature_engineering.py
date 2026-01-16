@@ -128,6 +128,36 @@ def _create_same_state_lending(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def _clean_business_age(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Map BusinessAge to standardized categories.
+
+    Creates BusinessAge_Clean column with simplified categories:
+    - 'Existing or more than 2 years old' → 'Existing'
+    - 'Startup, Loan Funds will Open Business' → 'Startup'
+    - 'New Business or 2 years or less' → 'NewBusiness'
+    - 'Change of Ownership' → 'ChangeOfOwnership'
+    - 'Unanswered' / NaN → 'Existing' (conservative assumption)
+
+    Args:
+        df: Input DataFrame with BusinessAge column.
+
+    Returns:
+        DataFrame with BusinessAge_Clean column added.
+    """
+    df = df.copy()
+
+    df[config.BUSINESS_AGE_CLEAN_COLUMN] = (
+        df[config.BUSINESS_AGE_COLUMN]
+        .map(config.BUSINESS_AGE_MAPPING)
+        .fillna(config.BUSINESS_AGE_DEFAULT)
+    )
+
+    logger.info(f"Created {config.BUSINESS_AGE_CLEAN_COLUMN} from {config.BUSINESS_AGE_COLUMN}")
+
+    return df
+
+
 def _apply_frequency_encoding(
     df: pd.DataFrame,
     frequency_map: Optional[Dict[float, int]] = None
@@ -197,6 +227,7 @@ def _one_hot_encode_categoricals(
     Encodes:
     - BusinessType → Type_*
     - BusinessAge_Clean → Age_*
+    - NAICSSector → Sector_*
     - ProjectState → State_*
 
     TRAINING MODE (expected_columns=None):
@@ -222,6 +253,15 @@ def _one_hot_encode_categoricals(
         df,
         columns=config.BUSINESS_TYPE_ENCODE_COLUMNS,
         prefix=config.BUSINESS_TYPE_PREFIXES,
+        dtype=int,
+        drop_first=False
+    )
+
+    # Encode NAICSSector (2-digit industry code)
+    df = pd.get_dummies(
+        df,
+        columns=['NAICSSector'],
+        prefix='Sector',
         dtype=int,
         drop_first=False
     )
@@ -306,12 +346,14 @@ def engineer_features(
        - IsFixedRate (FixedorVariableInterestRate == 'F')
        - HasCollateral (CollateralInd == 'Y')
     4. Create SameStateLending (BankState == ProjectState)
-    5. Apply LocationID frequency encoding → LocationIDCount
-    6. One-hot encode BusinessType → Type_*
-    7. One-hot encode BusinessAge_Clean → Age_*
-    8. One-hot encode ProjectState → State_*
-    9. Drop raw/intermediate columns
-    10. Ensure column order matches training (inference only)
+    5. Clean BusinessAge → BusinessAge_Clean
+    6. Apply LocationID frequency encoding → LocationIDCount
+    7. One-hot encode BusinessType → Type_*
+    8. One-hot encode BusinessAge_Clean → Age_*
+    9. One-hot encode NAICSSector → Sector_*
+    10. One-hot encode ProjectState → State_*
+    11. Drop raw/intermediate columns
+    12. Ensure column order matches training (inference only)
 
     TRAINING MODE (frequency_map=None, expected_columns=None):
     - Computes frequency_map from data
@@ -361,13 +403,16 @@ def engineer_features(
     # Step 4: SameStateLending
     df = _create_same_state_lending(df)
 
-    # Step 5: Frequency encoding
+    # Step 5: Clean BusinessAge → BusinessAge_Clean
+    df = _clean_business_age(df)
+
+    # Step 6: Frequency encoding
     df, _ = _apply_frequency_encoding(df, frequency_map)
 
-    # Step 6-8: One-hot encoding
+    # Step 7-10: One-hot encoding
     df = _one_hot_encode_categoricals(df, expected_columns)
 
-    # Step 9: Drop raw columns
+    # Step 11: Drop raw columns
     df = _drop_raw_columns(df)
 
     logger.info(f"Feature engineering complete. Shape: {df.shape}")

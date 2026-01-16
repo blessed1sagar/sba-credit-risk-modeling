@@ -13,20 +13,22 @@ from typing import List, Dict
 PROJECT_ROOT = Path(__file__).parent.parent
 RAW_DATA_PATH = PROJECT_ROOT / "data" / "raw" / "foia-7a-fy2020-present-asof-250930.csv"
 PROCESSED_DATA_PATH = PROJECT_ROOT / "data" / "feature" / "processed_data.parquet"
-FREQUENCY_ENCODER_PATH = PROJECT_ROOT / "data" / "feature" / "frequency_encoder.pkl"
 
-# Model paths
+# Model paths (reorganized structure)
 MODELS_DIR = PROJECT_ROOT / "models"
-BASELINE_MODEL_PATH = MODELS_DIR / "xgb_baseline.joblib"
-TUNED_MODEL_PATH = MODELS_DIR / "xgb_tuned.joblib"
+TRAINED_MODELS_DIR = MODELS_DIR / "trained"
+ENCODERS_DIR = MODELS_DIR / "encoders"
+BASELINE_MODEL_PATH = TRAINED_MODELS_DIR / "xgb_baseline.joblib"
+TUNED_MODEL_PATH = TRAINED_MODELS_DIR / "xgb_tuned.joblib"
+FREQUENCY_ENCODER_PATH = ENCODERS_DIR / "frequency_map.pkl"
 MLFLOW_TRACKING_URI = PROJECT_ROOT / "mlruns"
 
-# S3 Configuration
+# S3 Configuration (updated for ap-south-2 region)
 import os
-S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME', 'sba-loan-ml-artifacts')
-S3_REGION = os.getenv('AWS_REGION', 'us-east-1')
-S3_MODEL_KEY = 'models/xgb_tuned.joblib'
-S3_ENCODER_KEY = 'artifacts/frequency_encoder.pkl'
+S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME', 'sba-credit-risk-artifacts-sagar')
+S3_REGION = os.getenv('AWS_REGION', 'ap-south-2')
+S3_MODEL_KEY = 'models/trained/xgb_tuned.joblib'
+S3_ENCODER_KEY = 'models/encoders/frequency_map.pkl'
 
 # ============================================================================
 # TARGET DEFINITION

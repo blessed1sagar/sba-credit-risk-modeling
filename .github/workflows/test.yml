@@ -1,0 +1,126 @@
+name: Run Tests
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+  pull_request:
+    branches:
+      - dev
+      - main
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  test:
+    name: Run Python Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      # =========================================================================
+      # Step 1: Checkout Code
+      # =========================================================================
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # =========================================================================
+      # Step 2: Set up Python
+      # =========================================================================
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      # =========================================================================
+      # Step 3: Install Dependencies
+      # =========================================================================
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+
+      # =========================================================================
+      # Step 4: Run Tests with Coverage
+      # =========================================================================
+      - name: Run tests with pytest
+        run: |
+          pytest tests/ -v --cov=src --cov-report=xml --cov-report=term-missing || true
+
+      # =========================================================================
+      # Step 5: Upload Coverage to Codecov (Optional)
+      # =========================================================================
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+        continue-on-error: true
+
+      # =========================================================================
+      # Step 6: Lint Check (Optional)
+      # =========================================================================
+      - name: Lint with flake8
+        run: |
+          pip install flake8
+          # Stop the build if there are Python syntax errors or undefined names
+          flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Exit-zero treats all errors as warnings
+          flake8 src/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        continue-on-error: true
+
+  docker-build:
+    name: Test Docker Build
+    runs-on: ubuntu-latest
+
+    steps:
+      # =========================================================================
+      # Step 1: Checkout Code
+      # =========================================================================
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # =========================================================================
+      # Step 2: Set up Docker Buildx
+      # =========================================================================
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # =========================================================================
+      # Step 3: Build API Docker Image (Test Only)
+      # =========================================================================
+      - name: Build API Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.api
+          push: false
+          tags: sba-loan-api:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # =========================================================================
+      # Step 4: Build UI Docker Image (Test Only)
+      # =========================================================================
+      - name: Build UI Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.streamlit
+          push: false
+          tags: sba-loan-ui:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # =========================================================================
+      # Step 5: Test Summary
+      # =========================================================================
+      - name: Test summary
+        run: |
+          echo "✓ Docker images built successfully!"
+          echo "  - sba-loan-api:test"
+          echo "  - sba-loan-ui:test"

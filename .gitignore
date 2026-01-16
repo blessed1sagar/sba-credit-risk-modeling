@@ -72,3 +72,7 @@ Thumbs.db
 # Temporary files
 tmp/
 temp/
+
+# Infrastructure temporary files
+infrastructure/ecs-task-*-local.json
+infrastructure/*.bak

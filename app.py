@@ -2,7 +2,7 @@
 Streamlit dashboard for SBA Loan Risk Assessment.
 
 Banker-facing UI that calls FastAPI backend for predictions and explanations.
-Provides domain-specific inputs and SHAP force plot visualizations.
+Provides domain-specific inputs and SHAP waterfall plot visualizations.
 
 Run with: streamlit run app.py
 """
@@ -11,8 +11,6 @@ import pandas as pd
 import requests
 import os
 from datetime import datetime
-import shap
-import streamlit_shap
 
 # ============================================================================
 # CONFIGURATION
@@ -245,8 +243,10 @@ with st.form("loan_application_form"):
 # PROCESS SUBMISSION
 # ====================
 if submit_button:
+    # Clear any previous results by using a unique container
     st.markdown("---")
     st.header("📊 Risk Assessment Results")
+    st.caption(f"Analysis timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     # Client-side calculations
     approval_fy = datetime.now().year
@@ -328,14 +328,48 @@ if submit_button:
                     f"Recommend **APPROVAL**."
                 )
 
+            # Explanation of calculation
+            with st.expander("📖 How is this probability calculated?"):
+                st.markdown(f"""
+                ### Calculation Process:
+
+                **Step 1: Feature Engineering**
+                - Your loan application (15 input fields) is transformed into **97 numerical features**
+                - Features created: IsCovidEra, NAICSSector, LocationIDCount, one-hot encoded states, etc.
+
+                **Step 2: XGBoost Model Prediction**
+                - Model trained on **44,667 historical SBA loans** (92.5% good, 7.5% defaults)
+                - XGBoost uses **100 decision trees** to vote on the outcome
+                - Each tree analyzes all 97 features and votes for "Paid-in-Full" or "Default"
+                - Final probability = weighted average of all tree votes
+
+                **Step 3: Risk Categorization**
+                - **Probability = {prob:.2%}** (probability this loan will default)
+                - Risk thresholds:
+                  - 🔴 **HIGH** (≥28%): Recommend REJECT
+                  - 🟡 **MEDIUM** (15-27%): Approve with monitoring
+                  - 🟢 **LOW** (<15%): Approve
+
+                **Model Performance:**
+                - ROC-AUC: 0.8317 (83% accuracy in ranking risk)
+                - Recall: 83.4% (catches 83% of actual defaults)
+                - Trained on loans from 2020-2024
+
+                **Why 28% threshold?**
+                - Optimized to catch 83% of defaults while minimizing false alarms
+                - Lower than 50% because the cost of missing a default is higher than rejecting a good loan
+                """)
+
+                st.info("💡 **Tip**: Check the SHAP waterfall plot below to see which features contributed most to this prediction.")
+
         except requests.exceptions.RequestException as e:
             st.error(f"❌ Prediction API Error: {str(e)}")
             st.stop()
 
     # Call /explain endpoint
     st.markdown("---")
-    st.header("🔍 SHAP Force Plot Explanation")
-    st.markdown("This plot shows how each feature contributes to the prediction:")
+    st.header("🔍 SHAP Waterfall Plot Explanation")
+    st.markdown("This plot shows how each feature contributes to moving from the base prediction to the final prediction:")
 
     with st.spinner("Generating SHAP explanation..."):
         try:
@@ -344,49 +378,55 @@ if submit_button:
             explanation = explain_response.json()
 
             # Prepare SHAP visualization
-            shap_values = explanation['shap_values']
-            base_value = explanation['base_value']
-            feature_names = explanation['feature_names']
-
-            # Create feature values DataFrame for visualization
-            # We need to reconstruct the engineered features (this is a simplified version)
-            # In production, you'd want the API to return feature_values
-            feature_values_display = {name: 0 for name in feature_names}  # Placeholder
-
-            # Render SHAP force plot using streamlit_shap
+            import numpy as np
             import shap
             import matplotlib.pyplot as plt
 
-            # Create SHAP Explanation object
+            shap_values = np.array(explanation['shap_values'])  # Convert list to numpy array
+            base_value = explanation['base_value']
+            feature_names = explanation['feature_names']
+
+            # Create SHAP Explanation object for waterfall plot
             shap_explanation = shap.Explanation(
                 values=shap_values,
                 base_values=base_value,
                 feature_names=feature_names
             )
 
-            # Use streamlit_shap to render force plot
+            # Render SHAP waterfall plot
             st.markdown("**Feature Impact on Prediction:**")
-            streamlit_shap.st_shap(
-                shap.force_plot(
-                    base_value,
-                    shap_values,
-                    feature_names=feature_names,
-                    matplotlib=True
-                ),
-                height=250
-            )
+
+            # Create matplotlib figure with custom size for better readability
+            fig, ax = plt.subplots(figsize=(10, 8))
+            shap.plots.waterfall(shap_explanation, max_display=15, show=False)
+
+            # Adjust layout to prevent label cutoff
+            plt.tight_layout()
+
+            # Display in Streamlit with container width
+            st.pyplot(fig, use_container_width=True)
+
+            # Close figure to free memory
+            plt.close(fig)
 
             st.markdown("""
-            **How to read this plot:**
-            - **Red bars** push the prediction towards default (increase risk)
-            - **Blue bars** push the prediction towards paid-in-full (decrease risk)
-            - **Bar length** shows the magnitude of each feature's impact
-            """)
+            **How to read this waterfall plot:**
+            - **Base value (E[f(X)])**: The average model prediction across the training dataset ({:.4f})
+            - **Red bars** (positive SHAP values): Features pushing the prediction **higher** (towards default)
+            - **Blue bars** (negative SHAP values): Features pushing the prediction **lower** (towards paid-in-full)
+            - **f(x)**: The final prediction for this loan ({:.4f})
+            - Features are ordered by absolute impact, showing the top 15 most influential features
+
+            The waterfall shows the cumulative effect: starting from the base value, each feature either
+            increases (red) or decreases (blue) the prediction, ultimately arriving at the final prediction.
+            """.format(base_value, base_value + shap_values.sum()))
 
         except requests.exceptions.RequestException as e:
             st.error(f"❌ Explanation API Error: {str(e)}")
         except Exception as e:
             st.warning(f"⚠️ SHAP visualization error: {str(e)}")
+            import traceback
+            st.code(traceback.format_exc())
 
 # Footer
 st.markdown("---")

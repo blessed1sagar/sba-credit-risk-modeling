@@ -1,0 +1,14 @@
+artifact_uri: mlflow-artifacts:/0/c43b72562d7845309bea433b669113ff/artifacts
+end_time: 1767625521902
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: c43b72562d7845309bea433b669113ff
+run_name: optuna_best_model
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1767625521645
+status: 4
+tags: []
+user_id: sagarpandey

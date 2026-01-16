@@ -215,6 +215,7 @@ def encode_categoricals(df: pd.DataFrame) -> pd.DataFrame:
     Encodes:
     - BusinessType → Type_CORPORATION, Type_INDIVIDUAL, Type_PARTNERSHIP
     - BusinessAge_Clean → Age_ChangeOfOwnership, Age_Existing, Age_NewBusiness, Age_Startup
+    - NAICSSector → Sector_11, Sector_21, ..., Sector_99 (NAICS 2-digit sectors)
     - ProjectState → State_AK, State_AL, ..., State_WY (54 states/territories)
 
     Args:
@@ -238,6 +239,15 @@ def encode_categoricals(df: pd.DataFrame) -> pd.DataFrame:
         prefix=config.BUSINESS_TYPE_PREFIXES,
         dtype=int,
         drop_first=False  # Keep all categories for interpretability
+    )
+
+    # Encode NAICSSector (2-digit industry code)
+    df = pd.get_dummies(
+        df,
+        columns=['NAICSSector'],
+        prefix='Sector',
+        dtype=int,
+        drop_first=False
     )
 
     # Encode ProjectState

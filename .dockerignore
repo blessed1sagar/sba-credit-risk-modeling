@@ -1,0 +1,83 @@
+# =============================================================================
+# .dockerignore - Exclude files from Docker build context
+# =============================================================================
+# This file prevents unnecessary files from being sent to the Docker daemon
+# during image builds, reducing build time and image size.
+# =============================================================================
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# Jupyter notebooks and outputs
+jupyter-notebook/
+*.ipynb_checkpoints
+
+# MLflow tracking
+mlruns/
+
+# Raw data (large files, not needed in containers)
+data/raw/
+
+# Git repository
+.git/
+.gitignore
+.gitattributes
+
+# Environment files (contain secrets - DO NOT include in images)
+.env
+.env.*
+*.env
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Documentation
+docs/
+*.md
+README*
+LICENSE
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Docker files themselves (don't need in context)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Infrastructure as Code
+infrastructure/
+scripts/setup_aws_infrastructure.sh
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
+
+# Logs
+*.log
+logs/

@@ -31,7 +31,7 @@ A production-ready machine learning platform for predicting Small Business Admin
 This platform analyzes SBA 7(a) loan applications and predicts default probability using an XGBoost model trained on historical loan data. The system provides:
 
 - **Real-time predictions** via REST API
-- **Explainable AI** with SHAP force plots
+- **Explainable AI** with SHAP waterfall plots
 - **Banker-friendly UI** for loan officers
 - **Cloud-portable** architecture with S3 artifact storage
 - **Training-inference consistency** guaranteed through shared feature engineering
@@ -56,7 +56,7 @@ This platform analyzes SBA 7(a) loan applications and predicts default probabili
 
 ### 🔍 Explainable AI
 - **SHAP TreeExplainer** for model interpretability
-- **Force plots** showing feature contributions to predictions
+- **Waterfall plots** showing feature contributions to predictions
 - **Feature importance** tracking across training runs
 - **MLflow integration** for experiment tracking
 
@@ -163,12 +163,15 @@ ml-eng-lr/
 │
 ├── src/                                     # Source code
 │   │
-│   ├── feature_pipeline/                    # Data preprocessing
+│   ├── main.py                              # ⭐ Preprocessing orchestration (run this!)
+│   ├── config.py                            # Configuration (paths, constants, S3 settings)
+│   ├── __init__.py
+│   │
+│   ├── feature_pipeline/                    # Data preprocessing modules
 │   │   ├── __init__.py
 │   │   ├── load.py                          # Load CSV, filter loans, drop leakage
 │   │   ├── cleaning.py                      # Handle missing values, clean categoricals
-│   │   ├── engineering.py                   # Create features (COVID, NAICS, binary flags)
-│   │   └── main.py                          # Orchestrate preprocessing pipeline
+│   │   └── engineering.py                   # Create features (COVID, NAICS, binary flags)
 │   │
 │   ├── training_pipeline/                   # Model training
 │   │   ├── __init__.py
@@ -185,13 +188,10 @@ ml-eng-lr/
 │   │   ├── __init__.py
 │   │   └── main.py                          # REST API endpoints (/predict, /explain)
 │   │
-│   ├── utils/                               # ⭐ Shared utilities (CRITICAL)
-│   │   ├── __init__.py
-│   │   ├── feature_engineering.py           # Shared feature engineering (train + inference)
-│   │   └── s3_manager.py                    # S3 artifact upload/download
-│   │
-│   ├── config.py                            # Configuration (paths, constants, S3 settings)
-│   └── __init__.py
+│   └── utils/                               # ⭐ Shared utilities (CRITICAL)
+│       ├── __init__.py
+│       ├── feature_engineering.py           # Shared feature engineering (train + inference)
+│       └── s3_manager.py                    # S3 artifact upload/download
 │
 ├── tests/                                   # Test suite
 │   ├── __init__.py
@@ -209,12 +209,12 @@ ml-eng-lr/
 
 ### Key Components
 
-#### **1. Feature Pipeline** (`src/feature_pipeline/`)
+#### **1. Feature Pipeline** (`src/main.py` + `src/feature_pipeline/`)
 Transforms raw CSV data into ML-ready features:
-- **load.py**: Load CSV, filter to PIF/CHGOFF loans, drop leakage columns
-- **cleaning.py**: Handle missing values, clean BusinessType/BusinessAge
-- **engineering.py**: Create features (IsCovidEra, NAICSSector, binary indicators, frequency encoding, one-hot encoding)
-- **main.py**: Orchestrate full pipeline (load → clean → engineer → save)
+- **src/main.py**: ⭐ Orchestrate full pipeline (load → clean → engineer → save) - **RUN THIS!**
+- **feature_pipeline/load.py**: Load CSV, filter to PIF/CHGOFF loans, drop leakage columns
+- **feature_pipeline/cleaning.py**: Handle missing values, clean BusinessType/BusinessAge
+- **feature_pipeline/engineering.py**: Create features (IsCovidEra, NAICSSector, binary indicators, frequency encoding, one-hot encoding)
 
 #### **2. Training Pipeline** (`src/training_pipeline/`)
 Train and evaluate ML models:
@@ -244,7 +244,7 @@ FastAPI REST API:
 Banker-facing UI with:
 - Domain-specific inputs (NAICS sectors, US states, business age)
 - Real-time risk assessment
-- SHAP force plot visualization
+- SHAP waterfall plot visualization (top 15 features by impact)
 - Client-side calculations (SBA guarantee, same-state lending)
 
 ---
@@ -288,11 +288,13 @@ data/raw/foia-7a-fy2020-present-asof-250930.csv
 Transform raw CSV into ML-ready features:
 
 ```bash
-python -m src.feature_pipeline.main
+python -m src.main
+# OR
+python src/main.py
 ```
 
 **Output**:
-- `data/feature/processed_data.parquet` (55,831 rows × 74 features)
+- `data/feature/processed_data.parquet` (55,834 rows × 98 features - 97 features + LoanStatus)
 - `data/feature/frequency_encoder.pkl` (LocationID frequency map)
 
 ---
@@ -572,17 +574,109 @@ docker run -p 8000:8000 sba-api
 
 ---
 
+## 🧮 How Risk Probability is Calculated
+
+### Prediction Pipeline
+
+The system calculates default probability through a three-step process:
+
+#### **Step 1: Feature Engineering (97 Features)**
+Raw loan application fields are transformed into 97 numerical features:
+
+```
+Raw Input (15 fields)                  Engineered Features (97)
+├─ GrossApproval: $50,000        →    ├─ GrossApproval: 50000
+├─ BusinessAge: "Existing..."    →    ├─ Age_Existing: 1
+├─ ApprovalDate: "2020-03-15"    →    ├─ IsCovidEra: 1
+├─ NAICSCode: "441110"           →    ├─ Sector_44: 1
+├─ ProjectState: "CA"            →    ├─ State_CA: 1
+└─ ... (10 more fields)          →    └─ ... (92 more features)
+```
+
+Key transformations:
+- **COVID indicator**: 1 if approved between 2020-03-01 and 2021-12-31
+- **NAICS sector**: Extract first 2 digits and one-hot encode (24 sectors)
+- **Frequency encoding**: LocationID → count of loans from that location
+- **Binary indicators**: IsCreditUnion, IsFranchise, IsFixedRate, HasCollateral
+- **One-hot encoding**: BusinessType, BusinessAge, ProjectState (54 states/territories)
+
+#### **Step 2: XGBoost Prediction**
+```python
+# XGBoost model trained on 44,667 historical loans
+probability = model.predict_proba(engineered_features)[:, 1]
+```
+
+**How XGBoost calculates probability:**
+1. **100 decision trees** each vote on the outcome
+2. Each tree splits on different feature combinations (e.g., "if GrossApproval > $100k AND IsCovidEra == 1...")
+3. Final probability = **weighted average** of all tree votes
+4. Output: `P(Default)` between 0.0 (0%) and 1.0 (100%)
+
+**Example:**
+```
+Tree 1: votes 0.3 (30% chance of default)
+Tree 2: votes 0.1 (10% chance of default)
+...
+Tree 100: votes 0.4 (40% chance of default)
+
+Final P(Default) = average ≈ 0.234 (23.4%)
+```
+
+#### **Step 3: Risk Categorization**
+Probability is mapped to risk categories and recommendations:
+
+| Default Probability | Risk Category | Recommendation |
+|---------------------|---------------|----------------|
+| **≥ 28%**           | 🔴 **HIGH**   | **REJECT** or require additional collateral |
+| **15% - 27.9%**     | 🟡 **MEDIUM** | **APPROVE** with closer monitoring |
+| **< 15%**           | 🟢 **LOW**    | **APPROVE** |
+
+**Why 28% threshold?**
+- Optimized to catch **83.4% of actual defaults** (high recall)
+- Threshold lower than 50% because **missing a default is costlier** than rejecting a good loan
+- Balances risk mitigation with business opportunity
+
+### Mathematical Details
+
+**XGBoost Binary Classification:**
+```python
+# Logistic function converts raw scores to probabilities
+raw_score = sum([tree_i.predict(x) for tree_i in model.trees])
+probability = 1 / (1 + exp(-raw_score))
+```
+
+**Class Imbalance Handling:**
+```python
+scale_pos_weight = n_negative / n_positive = 41,337 / 3,330 ≈ 12.41
+```
+This weight increases the importance of correctly predicting defaults (minority class).
+
+---
+
 ## 📊 Model Performance
 
 ### Metrics (Test Set)
 
-| Metric | Value |
-|--------|-------|
-| **ROC-AUC** | 0.8463 |
-| **Precision** | 0.7821 |
-| **Recall** | 0.6543 |
-| **F1 Score** | 0.7125 |
-| **KS Statistic** | 0.5311 |
+**Model**: Baseline XGBoost with class weighting (XGBoost 2.0.3)
+**Test Set**: 11,167 samples (92.55% Good, 7.45% Default)
+**Threshold**: 28% (optimized for recall)
+
+| Metric              | Value  |
+|---------------------|--------|
+| **ROC-AUC**         | 0.8317 |
+| **Precision**       | 0.1613 |
+| **Recall**          | 0.8341 |
+| **F1 Score**        | 0.2703 |
+| **KS Statistic**    | 0.4976 |
+
+**Confusion Matrix** (at 28% threshold):
+- True Negatives: 6,726
+- False Positives: 3,609
+- False Negatives: 138
+- True Positives: 694
+- Accuracy: 66.45%
+
+**Note**: Low precision is expected with 28% threshold optimized for high recall (catching 83% of defaults). This is appropriate for a risk assessment tool where false negatives (missing defaults) are more costly than false positives (rejecting good loans).
 
 ### Feature Importance (Top 10)
 

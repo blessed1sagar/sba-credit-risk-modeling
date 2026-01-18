@@ -87,7 +87,6 @@ st.markdown("Assess default risk for SBA loan applications using ML-powered pred
 # Sidebar with API status
 with st.sidebar:
     st.header("🔗 API Connection")
-    st.text(f"Endpoint: {API_URL}")
 
     # Health check
     try:
@@ -328,40 +327,6 @@ if submit_button:
                     f"Recommend **APPROVAL**."
                 )
 
-            # Explanation of calculation
-            with st.expander("📖 How is this probability calculated?"):
-                st.markdown(f"""
-                ### Calculation Process:
-
-                **Step 1: Feature Engineering**
-                - Your loan application (15 input fields) is transformed into **97 numerical features**
-                - Features created: IsCovidEra, NAICSSector, LocationIDCount, one-hot encoded states, etc.
-
-                **Step 2: XGBoost Model Prediction**
-                - Model trained on **44,667 historical SBA loans** (92.5% good, 7.5% defaults)
-                - XGBoost uses **100 decision trees** to vote on the outcome
-                - Each tree analyzes all 97 features and votes for "Paid-in-Full" or "Default"
-                - Final probability = weighted average of all tree votes
-
-                **Step 3: Risk Categorization**
-                - **Probability = {prob:.2%}** (probability this loan will default)
-                - Risk thresholds:
-                  - 🔴 **HIGH** (≥28%): Recommend REJECT
-                  - 🟡 **MEDIUM** (15-27%): Approve with monitoring
-                  - 🟢 **LOW** (<15%): Approve
-
-                **Model Performance:**
-                - ROC-AUC: 0.8317 (83% accuracy in ranking risk)
-                - Recall: 83.4% (catches 83% of actual defaults)
-                - Trained on loans from 2020-2024
-
-                **Why 28% threshold?**
-                - Optimized to catch 83% of defaults while minimizing false alarms
-                - Lower than 50% because the cost of missing a default is higher than rejecting a good loan
-                """)
-
-                st.info("💡 **Tip**: Check the SHAP waterfall plot below to see which features contributed most to this prediction.")
-
         except requests.exceptions.RequestException as e:
             st.error(f"❌ Prediction API Error: {str(e)}")
             st.stop()
@@ -410,16 +375,11 @@ if submit_button:
             plt.close(fig)
 
             st.markdown("""
-            **How to read this waterfall plot:**
-            - **Base value (E[f(X)])**: The average model prediction across the training dataset ({:.4f})
-            - **Red bars** (positive SHAP values): Features pushing the prediction **higher** (towards default)
-            - **Blue bars** (negative SHAP values): Features pushing the prediction **lower** (towards paid-in-full)
-            - **f(x)**: The final prediction for this loan ({:.4f})
-            - Features are ordered by absolute impact, showing the top 15 most influential features
-
-            The waterfall shows the cumulative effect: starting from the base value, each feature either
-            increases (red) or decreases (blue) the prediction, ultimately arriving at the final prediction.
-            """.format(base_value, base_value + shap_values.sum()))
+            **How to read this chart:**
+            - **Red bars**: Features increasing default risk
+            - **Blue bars**: Features decreasing default risk
+            - Features are ordered by impact (most influential first)
+            """)
 
         except requests.exceptions.RequestException as e:
             st.error(f"❌ Explanation API Error: {str(e)}")
@@ -427,11 +387,3 @@ if submit_button:
             st.warning(f"⚠️ SHAP visualization error: {str(e)}")
             import traceback
             st.code(traceback.format_exc())
-
-# Footer
-st.markdown("---")
-st.markdown(
-    "**SBA Loan Risk Assessment Dashboard** | "
-    "Powered by XGBoost + SHAP | "
-    "🤖 Generated with [Claude Code](https://claude.com/claude-code)"
-)

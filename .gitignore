@@ -76,3 +76,10 @@ temp/
 # Infrastructure temporary files
 infrastructure/ecs-task-*-local.json
 infrastructure/*.bak
+
+# Developer notes and internal documentation
+docs/dev-notes/
+
+# MLflow experiment tracking
+mlruns/
+jupyter-notebook/mlruns/

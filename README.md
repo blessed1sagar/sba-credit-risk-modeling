@@ -40,6 +40,16 @@ A full-stack machine learning platform that:
 
 ---
 
+## 🎥 Demo Video
+
+See the application in action:
+
+[![SBA Loan Risk Assessment Demo](https://img.youtube.com/vi/aIfv82D35Oo/maxresdefault.jpg)](https://youtu.be/aIfv82D35Oo)
+
+*Click to watch the full demo - SBA Loan Risk Assessment Dashboard walkthrough including real-time predictions and SHAP explanations*
+
+---
+
 ## 🏗️ Architecture & Tech Stack
 
 ### System Architecture

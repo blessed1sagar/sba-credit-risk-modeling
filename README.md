@@ -640,27 +640,31 @@ View training runs, metrics, parameters, and artifacts.
 ```
 ml-eng-lr/
 │
-├── data/
+├── .github/
+│   └── workflows/                                # CI/CD automation
+│       ├── deploy.yml                            # AWS ECS deployment
+│       └── test.yml                              # Automated testing
+│
+├── data/                                         # Data files (gitignored)
 │   ├── raw/                                      # Raw SBA FOIA CSV
 │   │   └── foia-7a-fy2020-present-asof-250930.csv
 │   └── feature/                                  # Processed data (generated)
-│       ├── processed_data.parquet                # 55,834 × 97 features
-│       └── frequency_encoder.pkl                 # LocationID frequency map
+│       └── processed_data.parquet                # 55,834 × 97 features
 │
-├── models/
+├── models/                                       # Model artifacts (gitignored)
 │   ├── trained/                                  # Trained models (generated)
 │   │   ├── xgb_baseline.joblib
 │   │   └── xgb_tuned.joblib                     # Optuna-tuned (deployed)
 │   └── encoders/                                 # Feature encoders (generated)
-│       └── frequency_map.pkl
+│       └── frequency_map.pkl                     # LocationID frequency encoder
 │
-├── mlruns/                                       # MLflow tracking (generated)
+├── mlruns/                                       # MLflow tracking (gitignored)
 │   └── 0/                                        # Default experiment
 │       └── [run_id]/                             # Metrics, params, artifacts
 │
 ├── src/
 │   ├── config.py                                 # Configuration (paths, constants)
-│   ├── main.py                                   # ⭐ Preprocessing orchestrator
+│   ├── main.py                                   # Preprocessing orchestrator
 │   │
 │   ├── feature_pipeline/                         # Data preprocessing
 │   │   ├── load.py                               # Load CSV, filter loans
@@ -670,8 +674,7 @@ ml-eng-lr/
 │   ├── training_pipeline/                        # Model training
 │   │   ├── train_baseline.py                     # Baseline XGBoost
 │   │   ├── tune_optuna.py                        # Hyperparameter tuning
-│   │   ├── evaluation.py                         # Metrics (ROC-AUC, KS, etc.)
-│   │   └── main.py                               # Training orchestrator
+│   │   └── evaluation.py                         # Metrics (ROC-AUC, KS, etc.)
 │   │
 │   ├── inference_pipeline/
 │   │   └── predict.py                            # LoanPredictor (predict + explain)
@@ -680,27 +683,44 @@ ml-eng-lr/
 │   │   └── main.py                               # FastAPI REST API
 │   │
 │   └── utils/
-│       ├── feature_engineering.py                # ⭐ Shared feature engineering
+│       ├── feature_engineering.py                # Shared feature engineering
 │       └── s3_manager.py                         # S3 artifact management
 │
 ├── tests/
 │   └── test_feature_consistency.py               # Feature engineering tests
 │
-├── infrastructure/                               # AWS ECS configs
+├── infrastructure/                               # AWS ECS configurations
 │   ├── ecs-task-api.json                        # API task definition
 │   ├── ecs-task-ui.json                         # UI task definition
-│   └── README.md                                 # Infrastructure docs
+│   ├── iam-task-role-policy.json                # IAM permissions
+│   ├── iam-trust-policy.json                    # IAM trust relationship
+│   └── README.md                                 # Infrastructure setup guide
+│
+├── scripts/                                      # Manual operations
+│   ├── push_artifacts.py                        # Upload artifacts to S3
+│   ├── push_to_ecr.sh                           # Build & push Docker images
+│   ├── setup_aws_infrastructure.sh              # AWS infrastructure setup
+│   └── update_ui_task_def.sh                    # Update UI task with ALB DNS
+│
+├── docs/                                         # Documentation
+│   ├── TECHNICAL_SPEC.md                        # Data preprocessing specification
+│   └── OPERATIONS_GUIDE.md                      # Start/stop services guide
 │
 ├── jupyter-notebook/                             # Exploratory analysis
 │   ├── sba_loan_preprocessing.ipynb
-│   └── sba_loan_modeling.ipynb
+│   ├── sba_loan_modeling.ipynb
+│   ├── sba_loan_optimization.ipynb
+│   └── sba_loan_final_v2.ipynb
 │
-├── app.py                                        # ⭐ Streamlit dashboard
-├── run_pipeline.py                               # ⭐ Pipeline orchestrator
+├── app.py                                        # Streamlit dashboard
+├── run_pipeline.py                               # Pipeline orchestrator
 ├── docker-compose.yml                            # Local multi-container setup
 ├── Dockerfile.api                                # API container
 ├── Dockerfile.streamlit                          # UI container
 ├── requirements.txt                              # Python dependencies
+├── .gitignore                                    # Git exclusions
+├── .dockerignore                                 # Docker build exclusions
+├── DEPLOYMENT.md                                 # AWS deployment guide
 └── README.md                                     # This file
 ```
 

@@ -78,6 +78,7 @@ infrastructure/ecs-task-*-local.json
 infrastructure/*.bak
 
 # Developer notes and internal documentation
+docs/
 docs/dev-notes/
 
 # MLflow experiment tracking
